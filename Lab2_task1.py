@@ -5,6 +5,7 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 
+
 # Реальные параметры
 sample_count = 10000
 real_dispersion1 = 2
