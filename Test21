@@ -1,0 +1,78 @@
+import numpy as np
+import scipy.stats as stats
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+sns.set(style="whitegrid")
+theta = 5
+real_theta2 = theta**2
+alpha = 0.05
+sample_count = 1000
+
+def run_experiment(sample_size):
+    gamma = 1 - alpha
+    z_quantile = stats.norm.ppf((1 + gamma) / 2)
+
+    samples = np.random.uniform(low=-theta, high=theta, size=(sample_count, sample_size))
+    sample_means = np.mean(samples, axis=1, keepdims=True)
+    sample_vars = np.var(samples, axis=1, ddof=1)
+    theta2_estimates = 3 * sample_vars
+
+    fourth_central = np.mean((samples - sample_means) ** 4, axis=1)
+    sigma2 = fourth_central - sample_vars ** 2
+
+    delta = z_quantile * np.sqrt(9 * sigma2) / np.sqrt(sample_size)
+
+    left = theta2_estimates - delta
+    right = theta2_estimates + delta
+
+    good_intervals = np.sum((real_theta2 >= left) & (real_theta2 <= right))
+    coverage = good_intervals / sample_count
+
+    return {
+        'sample_size': sample_size,
+        'coverage': coverage,
+        'lower_bounds': left,
+        'upper_bounds': right
+    }
+
+# Проведение эксперимента
+results_25 = run_experiment(25)
+results_10000 = run_experiment(10000)
+
+print(f"n = 25, покрытие: {results_25['coverage']*100:.2f}%")
+print(f"n = 10000, покрытие: {results_10000['coverage']*100:.2f}%")
+
+# Подготовка данных для boxplot (long-form)
+df_25 = pd.DataFrame({
+    'Lower': results_25['lower_bounds'],
+    'Upper': results_25['upper_bounds']
+}).melt(var_name='Boundary', value_name='Value')
+
+df_10000 = pd.DataFrame({
+    'Lower': results_10000['lower_bounds'],
+    'Upper': results_10000['upper_bounds']
+}).melt(var_name='Boundary', value_name='Value')
+
+# Строим два отдельных boxplot
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6))
+
+# Boxplot для n = 25
+sns.boxplot(data=df_25, x='Boundary', y='Value', ax=ax1, palette={'Lower': 'blue', 'Upper': 'green'})
+ax1.set_title(f"n = 25 (покрытие: {results_25['coverage']*100:.2f}%)")
+ax1.set_ylabel("Значение границ интервала")
+ax1.set_xlabel("")
+ax1.grid(True)
+
+# Boxplot для n = 10000
+sns.boxplot(data=df_10000, x='Boundary', y='Value', ax=ax2, palette={'Lower': 'blue', 'Upper': 'green'})
+ax2.set_title(f"n = 10000 (покрытие: {results_10000['coverage']*100:.2f}%)")
+ax2.set_ylabel("")
+ax2.set_xlabel("")
+ax2.grid(True)
+
+plt.suptitle("Сравнение нижней и верхней границы доверительных интервалов для оценки θ²", fontsize=16)
+plt.tight_layout()
+plt.subplots_adjust(top=0.88)
+plt.show()
